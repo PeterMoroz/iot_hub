@@ -1,0 +1,1 @@
+sqlite3 iot_hub.db < db_schema.sql
