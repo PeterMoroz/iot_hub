@@ -2,13 +2,51 @@
     <head>
         <title>Air quality data</title>
         <link rel="stylesheet" href='../static/style.css' />
+        <meta http-equiv="Content-Type" content="text/html; charset-UTF-8" />
+        <style>
+            body {
+                text-align: center;
+            }
+            #g1,
+            #g2 {
+                width: 200px;
+                height: 160px;
+                display: inline-block;
+                margin: 1em;
+            }
+        </style>
     </head>
     <body>
         <h1>Air quality sensor data</h1>
-        <h3>TVOC &emsp; {{ tvoc }} PPB</h3>
-        <h3>eCO2 &emsp; {{ eco2 }} PPM</h3>
+        <div id="g1"></div>
+        <div id="g2"></div>
         <hr>
         <h3>Last sensors reading: {{ timestamp }} </h3>
         <hr>
+        <script src="../static/raphael-2.1.4.min.js"></script>
+        <script src="../static/justgage.js"></script>
+        <script>
+            var g1, g2;
+            document.addEventListener("DOMContentLoaded", function(event) {
+                g1 = new JustGage({
+                    id: "g1",
+                    value: {{ tvoc }},
+                    valueFontColor: "yellow",
+                    min: 0,
+                    max: 5500,
+                    title: "TVOC",
+                    label: "PPB"
+                });
+                g2 = new JustGage({
+                    id: "g2",
+                    value: {{ eco2 }},
+                    valueFontColor: "yellow",
+                    min: 400,
+                    max: 5100,
+                    title: "CO2",
+                    label: "PPM"
+                });
+            });
+        </script>
     </body>
 </html>
