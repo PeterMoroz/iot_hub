@@ -21,7 +21,7 @@
         <div id="g1"></div>
         <div id="g2"></div>
         <hr>
-        <h3>Last sensors reading: {{ timestamp }} </h3>
+        <h3> Last sensors reading: <div id="ts" style="display: inline"> {{ timestamp }} </div></h3>
         <hr>
         <script src="../static/raphael-2.1.4.min.js"></script>
         <script src="../static/justgage.js"></script>
@@ -49,6 +49,20 @@
                     label: "%"
                 });
             });
+            function getData() {
+                var xhttp = new XMLHttpRequest();
+                xhttp.onreadystatechange = function() {
+                    if (this.readyState == 4 && this.status == 200) {
+                        var response = JSON.parse(this.responseText);
+                        g1.refresh(response.temperature);
+                        g2.refresh(response.humidity);
+                        document.getElementById("ts").innerHTML = response.timestamp;
+                    }
+                };
+                xhttp.open("GET", "/get_environmental_data", true);
+                xhttp.send();
+            }
+            setInterval(getData, 5000);
         </script>
     </body>
 </html>
