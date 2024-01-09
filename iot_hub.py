@@ -12,7 +12,7 @@ app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_KEEPALIVE'] = 5
 app.config['MQTT_TLS_ENABLED'] = False
 
-mqtt_client = Mqtt(app)
+mqtt_client = Mqtt(app, connect_async=True)
 
 @mqtt_client.on_connect()
 def handle_mqtt_connect(client, userdata, flags, rc):
