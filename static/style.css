@@ -3,3 +3,7 @@ body {
     color: yellow;
     padding: 1%
 }
+
+img {
+    display: display: inline-block
+}

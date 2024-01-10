@@ -23,6 +23,9 @@
         <hr>
         <h3> Last sensors reading: <div id="ts" style="display: inline"> {{ timestamp }} </div></h3>
         <hr>
+        <h3> Historical data </h3>
+        <img src="/plot_temperature" alt="no image" width="49%">
+        <img src="/plot_humidity" alt="no image" width="49%">
         <script src="../static/raphael-2.1.4.min.js"></script>
         <script src="../static/justgage.js"></script>
         <script>
@@ -59,7 +62,7 @@
                         document.getElementById("ts").innerHTML = response.timestamp;
                     }
                 };
-                xhttp.open("GET", "/get_environmental_data", true);
+                xhttp.open("GET", "/get_last_environmental_sample", true);
                 xhttp.send();
             }
             setInterval(getData, 5000);
