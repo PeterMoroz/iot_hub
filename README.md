@@ -1,1 +1,1 @@
-# A control point of the all IOT-devices of smart home
+# Web application to control smart home and IoT-devices
