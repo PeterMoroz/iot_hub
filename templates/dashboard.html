@@ -1,0 +1,490 @@
+{% extends 'base.html' %}
+
+{% block style %} 
+<style>
+
+.col-6{
+  border:1px solid black;
+  padding:5px;
+}
+
+section {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* set column sizes here */
+    grid-template-rows: auto auto; /* we want two rows */
+
+    grid-gap: 10px; /* how far between cells? */
+    grid-auto-flow: column; /* fill in by column, not row */
+
+    /* temporary property for visualization */
+    height: 150px;
+}
+
+section div {
+    border: 1px solid #000;
+}
+
+
+.grid-container-element { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    grid-gap: 10px; 
+    width: 100%; 
+} 
+.grid-child-element { 
+    margin: 10px;
+}
+
+</style>
+
+{% endblock %}
+
+{% block content %}
+    <h1>{% block title %} IoT Dashboard {% endblock %}</h1>
+    
+<div class="container">
+    <br>
+    <div class="row p-2">
+      <div class="col-6">
+        <div class="row match-height">
+          <div class="col-12 ">
+            <div class="card a">
+              <div class="card-body">
+              <!--
+                Temperature
+                <div id="temperature-color">
+                    <p id="temperature" style="text-align: center; font-size: 20px;"></p>
+                </div>
+                -->
+                <div class="grid-container-element">
+                    <div class="grid-child-element">Temperature</div>
+                    <div class="grid-child-element">
+                        <div id="temperature-color">
+                            <p id="temperature" style="text-align: center; font-size: 20px;"></p>
+                        </div>
+                    </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row match-height">
+          <div class="col-12 ">
+            <div class="card b">
+              <div class="card-body">
+                <div class="grid-container-element">
+                    <div class="grid-child-element">Humidity</div>
+                    <div class="grid-child-element">
+                        <div id="humidity-color">
+                            <p id="humidity" style="text-align: center; font-size: 20px;"></p>
+                        </div>
+                    </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6">
+        <div class="row match-height">
+          <div class="col-12">
+            <div class="card a">
+              <div class="card-body">
+                <div class="grid-container-element">
+                    <div class="grid-child-element">TVOC</div>
+                    <div class="grid-child-element">
+                        <div id="tvoc-color">
+                            <p id="tvoc" style="text-align: center; font-size: 20px;"></p>
+                        </div>
+                    </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row match-height">
+          <div class="col-12">
+            <div class="card b">
+              <div class="card-body">
+                <div class="grid-container-element">
+                    <div class="grid-child-element">CO2</div>
+                    <div class="grid-child-element">
+                        <div id="co2-color">
+                            <p id="co2" style="text-align: center; font-size: 20px;"></p>
+                        </div>
+                    </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <br>
+    
+    <section>
+      <div> <canvas id="canvas-temperature"></canvas> </div>
+      <div> <canvas id="canvas-humidity"></canvas> </div>
+      <div> <canvas id="canvas-tvoc"></canvas> </div>
+      <div> <canvas id="canvas-co2"></canvas> </div>
+    </section>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
+
+<script type = 'text/javascript'>
+
+    var maxHeight = function(elems){
+        return Math.max.apply(null, elems.map(function ()
+        {
+            return $(this).height();
+        }).get());
+    }
+
+    $('.a').css('height',maxHeight($(".a")));
+    $('.b').css('height',maxHeight($(".b")));
+    
+    const colorGreen = 'rgb(51, 255, 51)';      // good
+    const colorYellow = 'rgb(255, 255, 51)';    // acceptable
+    const colorOrange = 'rgb(255, 153, 51)';    // moderate
+    const colorRed = 'rgb(255, 51, 51)';        // poor
+    const colorViolet = 'rgb(153, 51, 255)';    // hazardous
+    const colorBlack = 'rgb(0, 0, 0)';
+    
+    $(document).ready(function () {
+        // Temperature chart
+        const configTemperature = {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: "Temperature",
+                    backgroundColor: 'rgb(255, 99, 132)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    data: [],
+                    fill: false,
+                }],
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: 'Temperature samples'
+                },
+                tooltips: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                hover: {
+                    mode: 'nearest',
+                    intersect: true
+                },
+                scales: {
+                    xAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Time'
+                        }
+                    }],
+                    yAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Value'
+                        }
+                    }]
+                }
+            }
+        };
+        // Humidity chart
+        const configHumidity = {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: "Humidity",
+                    backgroundColor: 'rgb(0, 157, 196)',
+                    borderColor: 'rgb(0, 157, 196)',
+                    data: [],
+                    fill: false,
+                }],
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: 'Humidity samples'
+                },
+                tooltips: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                hover: {
+                    mode: 'nearest',
+                    intersect: true
+                },
+                scales: {
+                    xAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Time'
+                        }
+                    }],
+                    yAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Value'
+                        }
+                    }]
+                }
+            }
+        };
+        
+        // TVOC chart
+        const configTVOC = {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: "TVOC",
+                    backgroundColor: 'rgb(66, 40, 14)',
+                    borderColor: 'rgb(66, 40, 14)',
+                    data: [],
+                    fill: false,
+                }],
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: 'TVOC samples'
+                },
+                tooltips: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                hover: {
+                    mode: 'nearest',
+                    intersect: true
+                },
+                scales: {
+                    xAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Time'
+                        }
+                    }],
+                    yAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Value'
+                        }
+                    }]
+                }
+            }
+        };
+        // CO2 chart
+        const configCO2 = {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: "CO2",
+                    backgroundColor: 'rgb(98, 93, 93)',
+                    borderColor: 'rgb(98, 93, 93)',
+                    data: [],
+                    fill: false,
+                }],
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: 'CO2 samples'
+                },
+                tooltips: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                hover: {
+                    mode: 'nearest',
+                    intersect: true
+                },
+                scales: {
+                    xAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Time'
+                        }
+                    }],
+                    yAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Value'
+                        }
+                    }]
+                }
+            }
+        };
+
+       const contextTemperature = document.getElementById('canvas-temperature').getContext('2d');
+       const lineChartTemperature = new Chart(contextTemperature, configTemperature);
+       const contextHumidity = document.getElementById('canvas-humidity').getContext('2d');
+       const lineChartHumidity = new Chart(contextHumidity, configHumidity);
+       
+       const contextTVOC = document.getElementById('canvas-tvoc').getContext('2d');
+       const lineChartTVOC = new Chart(contextTVOC, configTVOC);
+       const contextCO2 = document.getElementById('canvas-co2').getContext('2d');
+       const lineChartCO2 = new Chart(contextCO2, configCO2);
+
+       var socket = io();
+
+       socket.on('connect', function() {
+           console.log('connected to server');
+       });
+
+       socket.on('sensor_th_data', function(msg) {
+           //console.log('TH sensor data: ' + msg);
+           const data = JSON.parse(msg);
+           // console.log('temperature: ' + data.temperature);
+           // console.log('humidity: ' + data.humidity);
+           
+           colorTemperature = colorBlack;
+           if (20 <= data.temperature && data.temperature <= 25) {
+               colorTemperature = colorGreen;
+           } else if ((18 <= data.temperature && data.temperature < 20) 
+                    || (25 < data.temperature && data.temperature <= 27)) {
+               colorTemperature = colorYellow;
+           } else if ((16 <= data.temperature && data.temperature < 18) 
+                    || (27 < data.temperature && data.temperature <= 29)) {
+               colorTemperature = colorOrange;
+           } else if ((8 <= data.temperature && data.temperature < 16) 
+                    || (19 < data.temperature && data.temperature <= 34)) {
+               colorTemperature = colorRed;
+           } else if (data.temperature < 8 || 34 < data.temperature) {
+               colorTemperature = colorViolet;
+           }
+           
+           colorHumidity = colorBlack;
+           if (40 <= data.humidity && data.humidity <= 50) {
+               colorHumidity = colorGreen;
+           } else if ((30 <= data.humidity && data.humidity < 40) 
+                    || (50 < data.humidity && data.humidity <= 60)) {
+               colorHumidity = colorYellow;
+           } else if ((23 <= data.humidity && data.humidity < 30) 
+                    || (60 < data.humidity && data.humidity <= 65)) {
+               colorHumidity = colorOrange;
+           } else if ((14 <= data.humidity && data.humidity < 23) 
+                    || (65 < data.humidity && data.humidity <= 80)) {
+               colorHumidity = colorRed;
+           } else if (data.humidity < 14 || 80 < data.humidity) {
+               colorHumidity = colorViolet;
+           }
+           
+           $('#temperature-color').css('background-color', colorTemperature);
+           $('#temperature').fadeOut(function(){
+               $(this).text(data.temperature).fadeIn();
+           });
+           $('#humidity-color').css('background-color', colorHumidity);
+           $('#humidity').fadeOut(function(){
+               $(this).text(data.humidity).fadeIn();
+           });
+           
+           if (configTemperature.data.labels.length === 20) {
+               configTemperature.data.labels.shift();
+               configTemperature.data.datasets[0].data.shift();
+           }
+           configTemperature.data.labels.push(data.time);
+           configTemperature.data.datasets[0].data.push(data.temperature);
+           lineChartTemperature.update();
+           
+           if (configHumidity.data.labels.length === 20) {
+               configHumidity.data.labels.shift();
+               configHumidity.data.datasets[0].data.shift();
+           }
+           configHumidity.data.labels.push(data.time);
+           configHumidity.data.datasets[0].data.push(data.humidity);
+           lineChartHumidity.update();
+       });
+
+       socket.on('sensor_aiq_data', function(msg) {
+           //console.log('AIQ sensor data: ' + msg);
+           const data = JSON.parse(msg);
+           
+           colorCO2 = colorBlack;
+           if (data.co2 <= 600) {
+               colorCO2 = colorGreen;
+           } else if (600 < data.co2 && data.co2 <= 1000) {
+               colorCO2 = colorYellow;
+           } else if (1000 < data.co2 && data.co2 <= 2000) {
+               colorCO2 = colorOrange;
+           } else if (2000 < data.co2 && data.co2 <= 4500) {
+               colorCO2 = colorRed;
+           } else if (4500 < data.co2) {
+               colorCO2 = colorViolet;
+           }
+
+           colorTVOC = colorBlack;
+           if (data.tvoc <= 300) {
+               colorTVOC = colorGreen;
+           } else if (300 < data.tvoc && data.tvoc <= 500) {
+               colorTVOC = colorYellow;
+           } else if (500 < data.tvoc && data.tvoc <= 3000) {
+               colorTVOC = colorOrange;
+           } else if (3000 < data.tvoc && data.tvoc <= 25000) {
+               colorTVOC = colorRed;
+           } else if (25000 < data.tvoc) {
+               colorTVOC = colorViolet;
+           }
+
+           $('#co2-color').css('background-color', colorCO2);
+           $('#co2').fadeOut(function(){
+               $(this).text(data.co2).fadeIn();
+           });
+           $('#tvoc-color').css('background-color', colorTVOC);
+           $('#tvoc').fadeOut(function(){
+               $(this).text(data.tvoc).fadeIn();
+           });
+           
+           if (configTVOC.data.labels.length === 20) {
+               configTVOC.data.labels.shift();
+               configTVOC.data.datasets[0].data.shift();
+           }
+           configTVOC.data.labels.push(data.time);
+           configTVOC.data.datasets[0].data.push(data.tvoc);
+           lineChartTVOC.update();
+           
+           if (configCO2.data.labels.length === 20) {
+               configCO2.data.labels.shift();
+               configCO2.data.datasets[0].data.shift();
+           }
+           configCO2.data.labels.push(data.time);
+           configCO2.data.datasets[0].data.push(data.co2);
+           lineChartCO2.update();
+       });
+       
+       socket.on('disconnect', function(msg) {
+           console.log('disconnected from server');
+       });
+
+    });
+
+</script>
+{% endblock %}

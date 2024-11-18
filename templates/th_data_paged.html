@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{% block title %} Temperature/Humidity {% endblock %}</h1>
+    <div class="container">
+        {{ pagination.links }}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr> 
+                            <th>Timestamp</th>
+                            <th>Temperature</th>
+                            <th>Humidity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                <td> {{ row[0] }} </td>
+                                <td> {{ row[1] }} </td>
+                                <td> {{ row[2] }} </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {{ pagination.links }}
+    </div>
+    <!--
+    <table id="data" class="table table-stripped">
+        <thead>
+            <tr> 
+                <th>Timestamp</th>
+                <th>Temperature</th>
+                <th>Humidity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td> {{ row[0] }} </td>
+                <td> {{ row[1] }} </td>
+                <td> {{ row[2] }} </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    -->
+    
+  <div class="card-body">
+    <div class="chart-area">
+      <canvas id="chart" width="400" height="400"></canvas>
+    </div>
+  </div>
+    
+{% endblock %}
+
+{% block scripts %}
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0/dist/Chart.bundle.min.js"></script>
+    
+    <script type = 'text/javascript'>
+    var page = '1';
+    $(document).ready(function () {
+        const search = window.location.search;
+
+        if (search.length > 6) {
+            page = search.substr(6);
+        }
+
+        var requests = $.get('/th_samples?page=' + page);
+    
+            var tm = requests.done(function (result) {
+                var timestamps = [];
+                var temperature_samples = [];
+                var humidity_samples = [];
+                
+                for (i = 0; i < result.length; i++) {
+                    var str = String(result[i]);
+                    row = str.split(',');
+                    timestamps.push(row[0]);
+                    temperature_samples.push(row[1]);
+                    humidity_samples.push(row[2]);
+                }
+
+                var ctx = document.getElementById("chart").getContext('2d');
+                var chart = new Chart(ctx, {
+                  type: 'line',
+                  data: {
+                      labels: timestamps,  //Bottom Labeling
+                      datasets: [{
+                          label: "Temperature",
+                          fill: false,
+                          backgroundColor: 'rgba(255, 61, 51 , 1)', //Dot marker color
+                          borderColor: 'rgba(255, 81, 51 , 1)', //Graph Line Color
+                          data: temperature_samples,
+                      },
+                      {
+                          label: "Humidity",
+                          fill: false,
+                          backgroundColor: 'rgba(51, 197, 255 , 1)', //Dot marker color
+                          borderColor: 'rgba(51, 197, 255 , 1)', //Graph Line Color
+                          data: humidity_samples,
+                      }],
+                  },
+                  options: {
+                      title: {
+                              display: true,
+                          },
+                      maintainAspectRatio: false,
+                      elements: {
+                      line: {
+                              tension: 0.5 //Smoothening (Curved) of data lines
+                          }
+                      },
+                      scales: {
+                              yAxes: [{
+                                  ticks: {
+                                      beginAtZero:true
+                                  }
+                              }]
+                      }
+                  }
+                });
+        });
+    });
+
+    </script>
+
+{% endblock %}

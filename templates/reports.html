@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{% block title %} Reports {% endblock %}</h1>
+
+    <br>
+    <br>
+    <table style="width: 60%;">
+        <thead>
+            <th> <h5 style="color:purple;">Download Excel Report</h5> </th>
+            <th> <h5 style="color:purple;">Download CSV Report</h5> </th>
+        </thead>
+        <tbody>
+            <tr>
+                <td> <a class="btn btn-info" href="{{ url_for('.download_excel') }}">Generate Excel Report</a> </td>
+                <td> <a class="btn btn-info" href="{{ url_for('.download_csv') }}">Generate CSV Report</a> </td>
+            </tr>
+        </tbody>
+    </table>
+
+{% endblock %}
