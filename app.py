@@ -27,6 +27,13 @@ socketio = SocketIO(app)
 mqtt = Mqtt(app, connect_async=True)
 
 
+th_samples = []
+th_last_save_time = None
+aiq_samples = []
+aiq_last_save_time = None
+
+NUM_SAMPLES_PER_PAGE = 24
+
 @app.route('/')
 def default():
     return render_template('index.html')
@@ -52,7 +59,7 @@ def th_data():
 def th_data_paged():
     # page, per_page, offset = get_page_args(page_parameter='page', per_page_parameter='per_page')
     page = int(request.args.get('page', 1))
-    per_page = 100
+    per_page = NUM_SAMPLES_PER_PAGE
     offset = (page - 1) * per_page
     
     connection = sqlite3.connect('database.db')
@@ -65,8 +72,8 @@ def th_data_paged():
     pagination = Pagination(page=page, per_page=per_page, total=total, css_framework='bootstrap4')
     return render_template('th_data_paged.html', rows=limited_rows, page=page, per_page=per_page, pagination=pagination)
 
-@app.route('/th_samples')
-def th_samples():
+@app.route('/th_samples_range')
+def th_samples_range():
     page = 1
     page_arg = request.args['page']
     if page_arg:
@@ -78,8 +85,8 @@ def th_samples():
     rows = cursor.fetchall()
     connection.close()
     total = len(rows)
-    from_idx = (page - 1) * 100
-    to_idx = page * 100
+    from_idx = (page - 1) * NUM_SAMPLES_PER_PAGE
+    to_idx = page * NUM_SAMPLES_PER_PAGE
     samples = rows[from_idx:to_idx]
     return samples
 
@@ -180,40 +187,88 @@ def handle_mqtt_message(client, userdata, message):
         json_data = message.payload.decode()
         data = json.loads(json_data)
         temperature = data['temperature']
-        humidity = data['humidity']        
-        store_th_data(json_data)
+        humidity = data['humidity']
         socketio.emit('sensor_th_data', json.dumps({'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                                                     'temperature': temperature, 'humidity': humidity}))
+        handle_th_data(temperature, humidity)
+
     if message.topic == 'sensors/aiq':
         json_data = message.payload.decode()
         data = json.loads(json_data)
         co2 = data['CO2']
-        tvoc = data['eTVOC']        
-        store_aiq_data(json_data)
+        tvoc = data['eTVOC']
         socketio.emit('sensor_aiq_data', json.dumps({'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                                                     'co2': co2, 'tvoc': tvoc}))
-def store_th_data(json_data):
-    data = json.loads(json_data)
-    temperature = data['temperature']
-    humidity = data['humidity']
-    print('temperature {}, humidity {}'.format(temperature, humidity))
-    connection = sqlite3.connect('database.db')
-    cursor = connection.cursor()
-    cursor.execute('INSERT INTO th_sensor_data (temperature, humidity) VALUES(?, ?)', (temperature, humidity))
-    connection.commit()
-    connection.close()
+        handle_aiq_data(co2, tvoc)
 
-def store_aiq_data(json_data):
-    data = json.loads(json_data)
-    co2 = data['CO2']
-    tvoc = data['eTVOC']
-    print('CO2 {}, TVOC {}'.format(co2, tvoc))
-    connection = sqlite3.connect('database.db')
-    cursor = connection.cursor()
-    cursor.execute('INSERT INTO aiq_sensor_data (co2, tvoc) VALUES(?, ?)', (co2, tvoc))
-    connection.commit()
-    connection.close()
+        
+def handle_th_data(temperature, humidity):
+    global th_samples, th_last_save_time
+    
+    th_samples.append((temperature, humidity))
+    if th_last_save_time is None:
+        th_last_save_time = datetime.now()
+    else:
+        dt = datetime.now() - th_last_save_time
+        if dt.seconds >= 3600:
+            temperature = 0.0
+            humidity = 0.0
+            for t, h in th_samples:
+                temperature += t
+                humidity += h
+                
+            temperature /= len(th_samples)
+            humidity /= len(th_samples)
+            store_th_data(th_last_save_time, temperature, humidity)
+            th_samples.clear()
+            th_last_save_time = None
+            
+def handle_aiq_data(co2, tvoc):
+    global aiq_samples, aiq_samples_lock, aiq_last_save_time
+    
+    aiq_samples.append((co2, tvoc))
+    if aiq_last_save_time is None:
+        aiq_last_save_time = datetime.now()
+    else:
+        dt = datetime.now() - aiq_last_save_time
+        if dt.seconds >= 3600:
+            co2 = 0.0
+            tvoc = 0.0
+            for v1, v2 in aiq_samples:
+                co2 += v1
+                tvoc += v2
+                
+            co2 /= len(aiq_samples)
+            tvoc /= len(aiq_samples)
+            store_aiq_data(aiq_last_save_time, int(co2), int(tvoc))
+            aiq_samples.clear()
+            aiq_last_save_time = None
+
+
+def store_th_data(timestamp, temperature, humidity):
+    # print('timestamp {}, temperature {}, humidity {}'.format(timestamp, temperature, humidity))
+    ts = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+    try:
+        connection = sqlite3.connect('database.db')
+        cursor = connection.cursor()
+        cursor.execute('INSERT INTO th_sensor_data (ts, temperature, humidity) VALUES(?, ?, ?)', (ts, temperature, humidity))
+        connection.commit()
+        connection.close()
+    except sqlite3.Error as e:
+        print('sqlite3.Error: {}'.format(e))
+
+def store_aiq_data(timestamp, co2, tvoc):
+    ts = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+    try:
+        connection = sqlite3.connect('database.db')
+        cursor = connection.cursor()
+        cursor.execute('INSERT INTO aiq_sensor_data (ts, co2, tvoc) VALUES(?, ?, ?)', (ts, co2, tvoc))
+        connection.commit()
+        connection.close()
+    except sqlite3.Error as e:
+        print('sqlite3.Error: {}'.format(e))
 
 if __name__ == '__main__':
-    # app.run(debug=True)
-    socketio.run(app, debug=True)
+    # important: Do not use reloader because this will create two Flask instances.
+    # Flask-MQTT only supports running with one instance    
+    socketio.run(app, use_reloader=False, debug=True)

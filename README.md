@@ -15,6 +15,11 @@ the current values of monitored values and their dynamic during the short period
 reading in the past the application stores them in database. The data can be viewed in table format, as charts and be download 
 as reports in MS Excel and CSV formats.
 
+When sensors reading are sent with high pace it generates an extra-load on DB - frequent I/O operations, large amount of data. 
+I guess that no necessuty to save values every second or minute because observed values don't shange frequently. Therefore when 
+devices send sensors readings too fast, these readings streamed to web-page at the same pace. But before saving these data into 
+DB a simple reduction of samples amount is applied: to accumulate samples during an hour and save averaged values into DB.
+
 
 ## Related project(s)
 [Home weather station](https://github.com/PeterMoroz/home_weather_station)

@@ -69,7 +69,7 @@
             page = search.substr(6);
         }
 
-        var requests = $.get('/th_samples?page=' + page);
+        var requests = $.get('/th_samples_range?page=' + page);
     
             var tm = requests.done(function (result) {
                 var timestamps = [];
